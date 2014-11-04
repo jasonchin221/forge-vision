@@ -1,1 +1,1 @@
-SUBDIRS = opencv apps
+SUBDIRS = opencv apps core

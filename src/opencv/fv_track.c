@@ -25,12 +25,12 @@ _fv_cv_lk_optical_flow_image(IplImage *prev, IplImage *curr)
     img_sz = cvGetSize(prev);
     eig_img = cvCreateImage(img_sz, IPL_DEPTH_8U, 1);
     if (eig_img == NULL) {
-        FV_LOG_PRINT_ERR("Create image failed!\n");
+        FV_LOG_ERR("Create image failed!\n");
     }
 
     tmp_img = cvCreateImage(img_sz, IPL_DEPTH_8U, 1);
     if (tmp_img == NULL) {
-        FV_LOG_PRINT_ERR("Create image failed!\n");
+        FV_LOG_ERR("Create image failed!\n");
     }
 
     cvGoodFeaturesToTrack(prev, eig_img, tmp_img, fv_cv_corners_a,
@@ -41,12 +41,12 @@ _fv_cv_lk_optical_flow_image(IplImage *prev, IplImage *curr)
     pyr_sz = cvSize(prev->width + 8, curr->height/3);
     pyr_prev = cvCreateImage(pyr_sz, IPL_DEPTH_8U, 1);
     if (pyr_prev == NULL) {
-        FV_LOG_PRINT_ERR("Create image failed!\n");
+        FV_LOG_ERR("Create image failed!\n");
     }
 
     pyr_curr = cvCreateImage(pyr_sz, IPL_DEPTH_8U, 1);
     if (pyr_curr == NULL) {
-        FV_LOG_PRINT_ERR("Create image failed!\n");
+        FV_LOG_ERR("Create image failed!\n");
     }
 
     cvCalcOpticalFlowPyrLK(prev, curr, pyr_prev, pyr_curr,
@@ -72,13 +72,13 @@ fv_cv_lk_optical_flow_image(IplImage *cv_img)
     printf("%s %d\n", __FUNCTION__, __LINE__);
     img_a = cvLoadImage("./A.png", CV_LOAD_IMAGE_GRAYSCALE);
     if (img_a == NULL) {
-        FV_LOG_PRINT_ERR("Load Image A failed!\n");
+        FV_LOG_ERR("Load Image A failed!\n");
         return FV_ERROR;
     }
 
     img_b = cvLoadImage("./B.png", CV_LOAD_IMAGE_GRAYSCALE);
     if (img_b == NULL) {
-        FV_LOG_PRINT_ERR("Load Image B failed!\n");
+        FV_LOG_ERR("Load Image B failed!\n");
         cvReleaseImage(&img_a);
         return FV_ERROR;
     }
@@ -98,7 +98,7 @@ fv_cv_lk_optical_flow_video(IplImage *cv_img)
 
     curr = cvCreateImage(cvGetSize(cv_img), IPL_DEPTH_8U, 1);
     if (curr == NULL) {
-        FV_LOG_PRINT_ERR("Create image failed!\n");
+        FV_LOG_ERR("Create image failed!\n");
         return FV_ERROR;
     }
 
@@ -115,7 +115,6 @@ fv_cv_lk_optical_flow_video(IplImage *cv_img)
 
     return ret;
 }
-
 
 fv_s32 
 fv_cv_lk_optical_flow(IplImage *cv_img, fv_bool image)

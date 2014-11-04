@@ -2,13 +2,15 @@
 #define __FV_LOG_H__
 
 #include <stdio.h>
+#include <unistd.h>
 
 #include "fv_types.h"
 
-#define FV_LOG_PRINT_ERR(fmt, ...) \
+#define FV_LOG_ERR(fmt, ...) \
     do {\
         fprintf(stderr, "Function: %s Line: %d ", __FUNCTION__,__LINE__); \
         fprintf(stderr, fmt, ##__VA_ARGS__); \
+        _exit(0); \
     } while (0)
 
 

@@ -62,7 +62,7 @@ fv_cv_detect_img(char *im_file, fv_proc_func proc)
     cv_img = cvLoadImage(im_file, 
             CV_LOAD_IMAGE_ANYDEPTH|CV_LOAD_IMAGE_ANYCOLOR);
     if (cv_img == NULL) {
-        FV_LOG_PRINT_ERR("Can't load Image file %s!\n", im_file);
+        FV_LOG_ERR("Can't load Image file %s!\n", im_file);
         return FV_ERROR;
     }
 
@@ -95,7 +95,7 @@ fv_cv_detect_video(char *vd_file, fv_proc_func proc)
     }
 
     if (capture == NULL) {
-        FV_LOG_PRINT_ERR("Can't create capture for file %s!\n", vd_file);
+        FV_LOG_ERR("Can't create capture for file %s!\n", vd_file);
         return FV_ERROR;
     }
 

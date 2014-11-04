@@ -7,6 +7,7 @@
 #include "fv_types.h"
 #include "fv_app.h"
 #include "fv_track.h"
+#include "fv_log.h"
 
 static fv_app_proc_file_t fv_app_proc[] = {
     {"image", 1, fv_cv_detect_img},
@@ -17,7 +18,7 @@ static fv_app_proc_file_t fv_app_proc[] = {
 #define fv_app_proc_size (sizeof(fv_app_proc)/sizeof(fv_app_proc_file_t))
 
 static fv_app_algorithm_t fv_app_algorithm[] = {
-    {"lk_optical_flow", {NULL, fv_cv_lk_optical_flow}},
+    {"lk_optical_flow", {fv_lk_optical_flow, fv_cv_lk_optical_flow}},
 };
 
 #define fv_app_alg_num (sizeof(fv_app_algorithm)/sizeof(fv_app_algorithm_t))
@@ -114,6 +115,7 @@ int main(int argc, char **argv)
                 return FV_ERROR;
 
             case 'D':
+                fv_log_enable();
                 break;
 
             case 'T':

@@ -98,6 +98,7 @@ fi
 AC_CONFIG_FILES([
 				 Makefile
 				 src/Makefile
+				 src/core/Makefile
 				 src/opencv/Makefile
 				 src/apps/Makefile
 				 ])
