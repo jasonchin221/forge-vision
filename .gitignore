@@ -18,9 +18,9 @@ ltmain.sh
 .libs/
 .deps/
 *.o
-src/video_detect
-src/img_test
-src/img_tool
+*.swp
+src/apps/fv_test
+src/apps/fv_app
 stamp-h1
 Makefile
 autom4te.cache
@@ -29,3 +29,5 @@ depcomp
 install-sh
 missing
 tags
+compile
+src/.dirstamp

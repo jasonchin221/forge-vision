@@ -8,6 +8,14 @@
 #include "fv_app.h"
 #include "fv_track.h"
 #include "fv_log.h"
+#include "fv_edge.h"
+#include "fv_debug.h"
+#include "fv_matrix.h"
+#include "fv_thresh.h"
+#include "fv_morph.h"
+#include "fv_stat.h"
+#include "fv_pyramid.h"
+#include "fv_smooth.h"
 
 static fv_app_proc_file_t fv_app_proc[] = {
     {"image", 1, fv_cv_detect_img},
@@ -18,7 +26,17 @@ static fv_app_proc_file_t fv_app_proc[] = {
 #define fv_app_proc_size (sizeof(fv_app_proc)/sizeof(fv_app_proc_file_t))
 
 static fv_app_algorithm_t fv_app_algorithm[] = {
-    {"lk_optical_flow", {fv_lk_optical_flow, fv_cv_lk_optical_flow}},
+    {"lk_opt_flow", {fv_cv_lk_optical_flow, _fv_cv_lk_optical_flow}},
+    {"sobel", {fv_cv_sobel, fv_cv_sobel}},
+    {"min_max_loc", {fv_cv_min_max_loc, fv_cv_min_max_loc}},
+    {"threshold", {fv_cv_threshold, fv_cv_threshold}},
+    {"dilate", {fv_cv_dilate, fv_cv_dilate}},
+    {"erode", {fv_cv_erode, fv_cv_erode}},
+    {"non_zero_count", {fv_cv_count_non_zero, fv_cv_count_non_zero}},
+    {"track_points", {fv_cv_track_points, _fv_cv_track_points}},
+    {"sub_pix", {fv_cv_sub_pix, fv_cv_sub_pix}},
+    {"pyr_down", {fv_cv_pyr_down, fv_cv_pyr_down}},
+    {"smooth", {fv_cv_smooth, fv_cv_smooth}},
 };
 
 #define fv_app_alg_num (sizeof(fv_app_algorithm)/sizeof(fv_app_algorithm_t))
@@ -32,6 +50,7 @@ fv_long_opts[] = {
 	{"debug", 0, 0, 'D'},
 	{"type", 0, 0, 'T'},
 	{"list", 0, 0, 'L'},
+	{"save", 0, 0, 'S'},
 	{"image_file", 1, 0, 'f'},
 	{"code_file", 1, 0, 'c'},
 	{"output_dir", 1, 0, 'o'},
@@ -51,6 +70,7 @@ static const char *
 fv_options[] = {
 	"--type         -T	file type(image, video, camera)\n",
 	"--debug        -D	enable debug mode\n",	
+	"--save         -S	save image\n",	
 	"--list         -L	list algorithm name\n",	
 	"--algorithm    -a	algorithm name\n",	
 	"--right        -r	right sample directive\n",	
@@ -83,7 +103,7 @@ fv_help()
 }
 
 static const char *
-fv_optstring = "HDLT:a:f:o:r:w:n:c:m:t:e:";
+fv_optstring = "HDLST:a:f:o:r:w:n:c:m:t:e:";
 
 int main(int argc, char **argv)  
 {
@@ -120,6 +140,10 @@ int main(int argc, char **argv)
 
             case 'T':
                 type = optarg;
+                break;
+
+            case 'S':
+                fv_debug_set_print(fv_cv_save_img);
                 break;
 
             case 'a':
