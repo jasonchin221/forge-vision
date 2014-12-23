@@ -463,7 +463,7 @@ fv_create_morph_filter(fv_u32 op, fv_morphology_row_filter_t *row_filter,
  
 static void
 fv_morph_filter_2D_8u(fv_u8 *dst, fv_u8 **src, 
-           fv_s32 count, fv_s32 width, float *ky_data,
+           fv_s32 count, fv_s32 width, float *k_data,
            fv_u32 cn, fv_base_filter_t *filter)
 {
     fv_morph_filter_2D_core(dst, src, count, width, cn, filter);
@@ -471,7 +471,7 @@ fv_morph_filter_2D_8u(fv_u8 *dst, fv_u8 **src,
 
 static void
 fv_morph_filter_2D_8s(fv_s8 *dst, fv_s8 **src, 
-           fv_s32 count, fv_s32 width, float *ky_data,
+           fv_s32 count, fv_s32 width, float *k_data,
            fv_u32 cn, fv_base_filter_t *filter)
 {
     fv_morph_filter_2D_core(dst, src, count, width, cn, filter);
@@ -479,37 +479,42 @@ fv_morph_filter_2D_8s(fv_s8 *dst, fv_s8 **src,
 
 static void
 fv_morph_filter_2D_16u(fv_u16 *dst, fv_u16 **src, 
-           fv_s32 count, fv_s32 width, float *ky_data,
+           fv_s32 count, fv_s32 width, float *k_data,
            fv_u32 cn, fv_base_filter_t *filter)
 {
+    fv_morph_filter_2D_core(dst, src, count, width, cn, filter);
 }
 
 static void
 fv_morph_filter_2D_16s(fv_s16 *dst, fv_s16 **src, 
-           fv_s32 count, fv_s32 width, float *ky_data,
+           fv_s32 count, fv_s32 width, float *k_data,
            fv_u32 cn, fv_base_filter_t *filter)
 {
+    fv_morph_filter_2D_core(dst, src, count, width, cn, filter);
 }
 
 static void
 fv_morph_filter_2D_32s(fv_s32 *dst, fv_s32 **src, 
-           fv_s32 count, fv_s32 width, float *ky_data,
+           fv_s32 count, fv_s32 width, float *k_data,
            fv_u32 cn, fv_base_filter_t *filter)
 {
+    fv_morph_filter_2D_core(dst, src, count, width, cn, filter);
 }
 
 static void
 fv_morph_filter_2D_32f(float *dst, float **src, 
-           fv_s32 count, fv_s32 width, float *ky_data,
+           fv_s32 count, fv_s32 width, float *k_data,
            fv_u32 cn, fv_base_filter_t *filter)
 {
+    fv_morph_filter_2D_core(dst, src, count, width, cn, filter);
 }
 
 static void
 fv_morph_filter_2D_64f(double *dst, double **src, 
-           fv_s32 count, fv_s32 width, float *ky_data,
+           fv_s32 count, fv_s32 width, float *k_data,
            fv_u32 cn, fv_base_filter_t *filter)
 {
+    fv_morph_filter_2D_core(dst, src, count, width, cn, filter);
 }
 
 static fv_filter_2D_func fv_morph_filter_2D_tab[] = {
@@ -550,7 +555,7 @@ fv_create_morph_filter_2D(fv_u32 op, fv_morphology_filter_2D_t *filter,
     filter->mf_anchor = anchor;
     filter->mf_nchannels = cn;
     filter->mf_op = func;
-    fv_preprocess_2D_kernel(kernel, &filter->mf_coords, nz);
+    fv_preprocess_2D_kernel(kernel, &filter->mf_coords, &filter->mf_coeffs, nz);
     filter->mf_nz = nz;
     filter->mf_ptrs = fv_alloc(nz*sizeof(void *));
     FV_ASSERT(filter->mf_ptrs != NULL);
@@ -559,10 +564,12 @@ fv_create_morph_filter_2D(fv_u32 op, fv_morphology_filter_2D_t *filter,
 static void
 fv_release_morph_filter_2D(fv_filter_engine_t *filter)
 {
-    fv_morphology_filter_2D_t   *f = (fv_morphology_filter_2D_t *)filter;
+    fv_morphology_filter_2D_t   *f = 
+        (fv_morphology_filter_2D_t *)filter->fe_filter_2D;
 
     if (!filter->fe_is_separable) {
         fv_free(&f->mf_coords);
+        fv_free(&f->mf_coeffs);
         fv_free(&f->mf_ptrs);
     }
 }
@@ -595,11 +602,11 @@ fv_morph_op_iterate(fv_s32 op, fv_mat_t *dst, fv_mat_t *src, fv_mat_t *kernel,
         filter.fe_is_separable = 0;
     }
 
-    fv_sep_filter_proceed(dst, src, kernel, kernel, 
+    fv_sep_filter_proceed(dst, src, kernel, kernel, kernel, 
             anchor, 0, border_type, &filter);
 
     for (i = 1; i < iterations; i++) {
-        fv_sep_filter_proceed(dst, dst, kernel, kernel, 
+        fv_sep_filter_proceed(dst, dst, kernel, kernel, kernel,
                 anchor, 0, border_type, &filter);
     }
 

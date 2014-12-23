@@ -41,7 +41,7 @@ typedef struct _fv_linear_row_filter_t {
 #define lr_anchor   lr_base.br_anchor   
 #define lr_ksize    lr_base.br_ksize    
 #define lr_type     lr_base.br_type     
-    fv_u32                  lr_nchannels;
+    fv_u32                  lr_cn;
 } fv_linear_row_filter_t;
 
 typedef struct _fv_linear_column_filter_t {
@@ -50,7 +50,20 @@ typedef struct _fv_linear_column_filter_t {
 #define lc_anchor   lc_base.bc_anchor   
 #define lc_ksize    lc_base.bc_ksize    
 #define lc_type     lc_base.bc_type     
+    fv_u32                  lc_cn;
 } fv_linear_column_filter_t;
+
+typedef struct _fv_filter_2D_t {
+    fv_base_filter_t        ft_base;
+#define ft_filter           ft_base.bf_filter
+#define ft_anchor           ft_base.bf_anchor
+#define ft_ksize            ft_base.bf_ksize
+    fv_u32                  ft_nchannels;
+    fv_u32                  ft_nz;
+    fv_point_t              *ft_coords;
+    double                  *ft_coeffs;
+    void                    *ft_ptrs;
+} fv_filter_2D_t;
 
 typedef struct _fv_filter_engine_t {
     fv_base_filter_t            *fe_filter_2D;
@@ -80,11 +93,13 @@ fv_normalize_anchor(fv_point_t anchor, fv_size_t ksize)
     return _anchor;
 }
 
-
 extern void fv_sep_filter_proceed(fv_mat_t *dst, fv_mat_t *src,
-                fv_mat_t *kernel_x, fv_mat_t *kernel_y, 
+                fv_mat_t *kernel, fv_mat_t *kernel_x, fv_mat_t *kernel_y,
                 fv_point_t anchor, double delta, fv_s32 border_type, 
                 fv_filter_engine_t *filter);
+extern void fv_filter2D(fv_mat_t *dst, fv_mat_t *src, fv_u16 depth,
+                fv_mat_t *kernel, fv_point_t anchor, 
+                double delta, fv_s32 border_type);
 extern void fv_sep_filter2D(fv_mat_t *dst, fv_mat_t *src,
                 fv_mat_t *kernel_x, fv_mat_t *kernel_y, 
                 fv_point_t anchor, double delta, fv_s32 border_type);
@@ -92,6 +107,6 @@ extern void fv_sep_conv_small3_32f(float *dst, fv_s32 dst_step,
             float *src, fv_s32 src_step, fv_size_t src_size, 
             float *kx, float *ky, float *buffer);
 extern void fv_preprocess_2D_kernel(fv_mat_t *kernel,
-            fv_point_t **coords, fv_u32 nz);
+            fv_point_t **coords, double **coeffs, fv_u32 nz);
 
 #endif

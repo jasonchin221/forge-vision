@@ -7,9 +7,11 @@
 #include "fv_time.h"
 
 #define FV_SOBEL_WIN_NAME   "sobel"
+#define FV_LAPLACE_WIN_NAME "laplace"
 #define FV_SOBEL_X_ORDER    1
 #define FV_SOBEL_Y_ORDER    0
 #define FV_SOBEL_K_SIZE     3
+#define FV_LAPLACE_K_SIZE   5
 
 static void 
 _fv_cv_sobel_mine(IplImage *cv_sobel, IplImage *gray, 
@@ -51,33 +53,74 @@ _fv_cv_sobel_mine(IplImage *cv_sobel, IplImage *gray,
 fv_s32 
 fv_cv_sobel(IplImage *cv_img, fv_bool image)
 {
-    IplImage    *gray;
     IplImage    *sobel;
     fv_s32      c;
 
     FV_ASSERT(image);
-    gray = cvCreateImage(cvGetSize(cv_img), cv_img->depth, 1);
-    FV_ASSERT(gray != NULL);
-    sobel = cvCreateImage(cvGetSize(cv_img), cv_img->depth, 1);
+    sobel = cvCreateImage(cvGetSize(cv_img), cv_img->depth, cv_img->nChannels);
     FV_ASSERT(sobel != NULL);
 
-    cvCvtColor(cv_img, gray, CV_BGR2GRAY);
-
-
     cvNamedWindow(FV_SOBEL_WIN_NAME, 0);  
-    _fv_cv_sobel_mine(sobel, gray, FV_SOBEL_X_ORDER, 
+    _fv_cv_sobel_mine(sobel, cv_img, FV_SOBEL_X_ORDER, 
             FV_SOBEL_Y_ORDER, FV_SOBEL_K_SIZE, 0);
     cvShowImage(FV_SOBEL_WIN_NAME, sobel);  
     c = cvWaitKey(0);  
     printf("c = %d\n", c);
-    _fv_cv_sobel_mine(sobel, gray, FV_SOBEL_X_ORDER, 
+    _fv_cv_sobel_mine(sobel, cv_img, FV_SOBEL_X_ORDER, 
             FV_SOBEL_Y_ORDER, FV_SOBEL_K_SIZE, 1);
     cvShowImage(FV_SOBEL_WIN_NAME, sobel);  
     c = cvWaitKey(0);  
     cvDestroyWindow(FV_SOBEL_WIN_NAME); 
 
     cvReleaseImage(&sobel);
-    cvReleaseImage(&gray);
+
+    return FV_OK;
+}
+
+fv_s32 
+fv_cv_laplace(IplImage *cv_img, fv_bool image)
+{
+    IplImage        *laplace;
+    fv_image_t      *img;
+    fv_image_t      *lap;
+    fv_size_t       size;
+    fv_s32          c;
+
+    FV_ASSERT(image);
+    laplace = cvCreateImage(cvGetSize(cv_img), cv_img->depth,
+            cv_img->nChannels);
+    FV_ASSERT(laplace != NULL);
+
+    img = fv_convert_image(cv_img);
+    if (img == NULL) {
+        FV_LOG_ERR("Convert image faield!\n");
+    }
+
+    size = fv_get_size(img);
+    lap = fv_create_image(size, cv_img->depth, cv_img->nChannels);
+    if (lap == NULL) {
+        FV_LOG_ERR("Alloc image faield!\n");
+    }
+
+    fv_time_meter_set(0);
+    fv_laplace(lap, img, FV_LAPLACE_K_SIZE);
+    fv_time_meter_get(0, 0);
+
+    fv_cv_img_to_ipl(laplace, lap);
+    fv_release_image(&lap);
+
+    cvNamedWindow(FV_LAPLACE_WIN_NAME, 0);
+    cvShowImage(FV_LAPLACE_WIN_NAME, laplace);
+    c = cvWaitKey(0);
+    printf("c = %d\n", c);
+    fv_time_meter_set(0);
+    cvLaplace(cv_img, laplace, FV_LAPLACE_K_SIZE);
+    fv_time_meter_get(0, 0);
+    cvShowImage(FV_LAPLACE_WIN_NAME, laplace);
+    c = cvWaitKey(0);
+    cvDestroyWindow(FV_LAPLACE_WIN_NAME);
+
+    cvReleaseImage(&laplace);
 
     return FV_OK;
 }

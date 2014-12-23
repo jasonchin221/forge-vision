@@ -34,6 +34,7 @@ typedef struct _fv_morphology_filter_2D_t {
     fv_u32                  mf_nz;
     fv_morph_op_func        mf_op;
     fv_point_t              *mf_coords;
+    double                  *mf_coeffs;
     void                    *mf_ptrs;
 } fv_morphology_filter_2D_t;
 

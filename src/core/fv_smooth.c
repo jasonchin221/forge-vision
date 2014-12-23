@@ -362,11 +362,10 @@ fv_box_filter(fv_mat_t *dst, fv_mat_t *src, fv_s32 ddepth, fv_size_t ksize,
     fv_create_box_filter(&row_filter, &col_filter, src, 
             ddepth, sdepth, ksize, anchor, normalize);
 
-
     filter.fe_row_filter = &row_filter.sr_base;
     filter.fe_col_filter = &col_filter.sc_base;
     filter.fe_is_separable = 1;
-    fv_sep_filter_proceed(dst, src, &kernel, &kernel, 
+    fv_sep_filter_proceed(dst, src, NULL, &kernel, &kernel, 
             anchor, 0, border_type, &filter);
 
     fv_release_box_filter(&row_filter, &col_filter);

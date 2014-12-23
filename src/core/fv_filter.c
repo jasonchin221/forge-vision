@@ -10,12 +10,15 @@
 #include "fv_mem.h"
 #include "fv_filter.h"
 #include "fv_border.h"
+#include "fv_stat.h"
 
 #define FV_SEP_FILTER_OUTPUT_LINE_NUM       4
+#define FV_DFT_FILTER_SIZE                  50
 
-#define fv_preprocess_2D_kernel_core(data, row, col, coords) \
+#define fv_preprocess_2D_kernel_core(data, row, col, coords, coeffs) \
     do { \
         typeof(data)    krow; \
+        typeof(data)    cf = coeffs; \
         fv_u32          i; \
         fv_u32          j; \
         fv_u32          k; \
@@ -25,62 +28,63 @@
                 if (krow[j] == 0) { \
                     continue; \
                 } \
-                coords[k++] = fv_point(j, i); \
+                coords[k] = fv_point(j, i); \
+                cf[k++] = krow[j]; \
             } \
         } \
     } while(0)
 
 static void
 fv_preprocess_2D_kernel_8u(fv_u8 *data, fv_s32 row, fv_s32 col,
-                fv_point_t *coords)
+                fv_point_t *coords, void *coeffs)
 {
-    fv_preprocess_2D_kernel_core(data, row, col, coords);
+    fv_preprocess_2D_kernel_core(data, row, col, coords, coeffs);
 }
 
 static void
 fv_preprocess_2D_kernel_8s(fv_s8 *data, fv_s32 row, fv_s32 col,
-                fv_point_t *coords)
+                fv_point_t *coords, void *coeffs)
 {
-    fv_preprocess_2D_kernel_core(data, row, col, coords);
+    fv_preprocess_2D_kernel_core(data, row, col, coords, coeffs);
 }
 
 static void
 fv_preprocess_2D_kernel_16u(fv_u16 *data, fv_s32 row, fv_s32 col,
-                fv_point_t *coords)
+                fv_point_t *coords, void *coeffs)
 {
-    fv_preprocess_2D_kernel_core(data, row, col, coords);
+    fv_preprocess_2D_kernel_core(data, row, col, coords, coeffs);
 }
 
 static void
 fv_preprocess_2D_kernel_16s(fv_s16 *data, fv_s32 row, fv_s32 col,
-                fv_point_t *coords)
+                fv_point_t *coords, void *coeffs)
 {
-    fv_preprocess_2D_kernel_core(data, row, col, coords);
+    fv_preprocess_2D_kernel_core(data, row, col, coords, coeffs);
 }
 
 static void
 fv_preprocess_2D_kernel_32s(fv_s32 *data, fv_s32 row, fv_s32 col,
-                fv_point_t *coords)
+                fv_point_t *coords, void *coeffs)
 {
-    fv_preprocess_2D_kernel_core(data, row, col, coords);
+    fv_preprocess_2D_kernel_core(data, row, col, coords, coeffs);
 }
 
 static void
 fv_preprocess_2D_kernel_32f(float *data, fv_s32 row, fv_s32 col,
-                fv_point_t *coords)
+                fv_point_t *coords, void *coeffs)
 {
-    fv_preprocess_2D_kernel_core(data, row, col, coords);
+    fv_preprocess_2D_kernel_core(data, row, col, coords, coeffs);
 }
 
 static void
 fv_preprocess_2D_kernel_64f(double *data, fv_s32 row, fv_s32 col,
-                fv_point_t *coords)
+                fv_point_t *coords, void *coeffs)
 {
-    fv_preprocess_2D_kernel_core(data, row, col, coords);
+    fv_preprocess_2D_kernel_core(data, row, col, coords, coeffs);
 }
 
 typedef void (*fv_preprocess_kernel_func)(void *, fv_s32, 
-                fv_s32, fv_point_t *);
+                fv_s32, fv_point_t *, void *);
 
 static fv_preprocess_kernel_func fv_preprocess_kernel_tab[] = {
     (fv_preprocess_kernel_func)fv_preprocess_2D_kernel_8u,
@@ -104,7 +108,8 @@ fv_get_preprocess_kernel_tab(fv_u32 depth)
 }
 
 void 
-fv_preprocess_2D_kernel(fv_mat_t *kernel, fv_point_t **coords, fv_u32 nz)
+fv_preprocess_2D_kernel(fv_mat_t *kernel, fv_point_t **coords,
+            double **coeffs, fv_u32 nz)
 {
     fv_preprocess_kernel_func   func;
     fv_u32                      depth = kernel->mt_depth;
@@ -115,8 +120,12 @@ fv_preprocess_2D_kernel(fv_mat_t *kernel, fv_point_t **coords, fv_u32 nz)
 
     func = fv_get_preprocess_kernel_tab(depth);
     FV_ASSERT(func != NULL);
-    *coords = fv_alloc(sizeof(*coords)*nz);
-    func(kernel->mt_data.dt_ptr, kernel->mt_rows, kernel->mt_cols, *coords);
+    *coords = fv_alloc(sizeof(**coords)*nz);
+    FV_ASSERT(*coords != NULL);
+    *coeffs = fv_alloc(sizeof(**coeffs)*nz);
+    FV_ASSERT(*coeffs != NULL);
+    func(kernel->mt_data.dt_ptr, kernel->mt_rows, kernel->mt_cols,
+                *coords, *coeffs);
 }
  
 /* lightweight convolution with 3x3 kernel */
@@ -243,14 +252,18 @@ fv_get_kernel_type(fv_mat_t *kernel, fv_point_t anchor)
 
 #define fv_row_filter_core(dst, src, width, kx_data, filter) \
     do {\
-        fv_s32      kx_row = filter->br_ksize; \
-        fv_s32      i; \
-        fv_s32      k; \
+        fv_s32                      kx_row = filter->br_ksize; \
+        fv_linear_row_filter_t      *row_filter = \
+                    (fv_linear_row_filter_t *)filter;\
+        fv_s32                      i; \
+        fv_s32                      k; \
+        fv_s32                      cn = row_filter->lr_cn; \
                         \
+        width *= cn; \
         for (i = 0; i < width; i++) { \
             dst[i] = src[i]*kx_data[0]; \
             for (k = 1; k < kx_row; k++) { \
-                dst[i] += src[i + k]*kx_data[k]; \
+                dst[i] += src[i + k*cn]*kx_data[k]; \
             } \
         } \
     } while(0)
@@ -337,7 +350,9 @@ fv_get_row_filter_tab(fv_u32 depth)
         fv_s32          i; \
         fv_s32          j; \
         fv_s32          k; \
+        fv_s32          cn = col_filter->lc_cn; \
                         \
+        width *= cn; \
         ky_data += ky_size; \
         if (col_filter->lc_type & FV_KERNEL_SYMMETRICAL) { \
             for (j = 0; j < count; j++, dst += width) { \
@@ -423,13 +438,17 @@ fv_column_filter_64f(double *dst, double **src,
            fv_s32 count, fv_s32 width, float *ky_data,
            fv_base_column_filter_t *filter)
 {
+    fv_linear_column_filter_t   *col_filter = 
+        (fv_linear_column_filter_t *)filter;
     fv_s32      ky_size = filter->bc_ksize;
     fv_s32      ay = filter->bc_anchor;
+    fv_s32      cn = col_filter->lc_cn;
     fv_s32      i;
     fv_s32      j;
     fv_s32      k;
     
     ky_data += ky_size;
+    width *= cn;
     if (filter->bc_type & FV_KERNEL_SYMMETRICAL) {
         for (j = 0; j < count; j++, dst += width) {
             for (i = 0; i < width; i++) {
@@ -475,8 +494,9 @@ fv_get_column_filter_tab(fv_u32 depth)
 }
 
 void 
-fv_sep_filter_proceed(fv_mat_t *dst, fv_mat_t *src, fv_mat_t *kernel_x, 
-                fv_mat_t *kernel_y, fv_point_t anchor, double delta, 
+fv_sep_filter_proceed(fv_mat_t *dst, fv_mat_t *src, fv_mat_t *kernel,
+                fv_mat_t *kernel_x, fv_mat_t *kernel_y, 
+                fv_point_t anchor, double delta, 
                 fv_s32 border_type, fv_filter_engine_t *filter)
 {
     fv_base_filter_t            *filter_2D;
@@ -518,8 +538,13 @@ fv_sep_filter_proceed(fv_mat_t *dst, fv_mat_t *src, fv_mat_t *kernel_x,
     FV_ASSERT((row_filter != NULL && col_filter != NULL) ||
             filter_2D != NULL); 
 
-    kx_row = kernel_x->mt_rows;
-    ky_row = kernel_y->mt_rows;
+    is_separable = filter->fe_is_separable;
+    if (is_separable) {
+        kx_row = kernel_x->mt_rows;
+        ky_row = kernel_y->mt_rows;
+    } else {
+        kx_row = ky_row =  kernel->mt_rows;
+    }
     
     ax = anchor.pt_x;
     ay = anchor.pt_y;
@@ -548,7 +573,6 @@ fv_sep_filter_proceed(fv_mat_t *dst, fv_mat_t *src, fv_mat_t *kernel_x,
         FV_ASSERT(buf[i] != NULL);
     }
 
-    is_separable = filter->fe_is_separable;
     make_border = fv_border_get_func(src->mt_depth);
     FV_ASSERT(make_border != NULL);
     for (h = 0, j = 0; j < ky_row - 1 - ay; j++, src_data += src_step, h++) {
@@ -603,7 +627,7 @@ fv_sep_filter_proceed(fv_mat_t *dst, fv_mat_t *src, fv_mat_t *kernel_x,
                     kernel_y->mt_data.dt_fl, col_filter);
         } else {
             filter_2D->bf_filter(dst_data, buf, j, width, 
-                    kernel_y->mt_data.dt_fl, cn, filter_2D);
+                    kernel->mt_data.dt_fl, cn, filter_2D);
         }
         for (k = 0; k < ky_row - 1; k++) {
             tmp = buf[row_num + k];
@@ -630,6 +654,7 @@ fv_sep_filter2D(fv_mat_t *dst, fv_mat_t *src,
     fv_linear_row_filter_t      row_filter = {};
     fv_linear_column_filter_t   col_filter = {};
     fv_s32                      ay;
+    fv_s32                      cn;
 
     if (anchor.pt_x < 0) {
         anchor.pt_x = ((kernel_x->mt_rows - 1) >> 1);
@@ -640,12 +665,15 @@ fv_sep_filter2D(fv_mat_t *dst, fv_mat_t *src,
     }
 
     ay = anchor.pt_y;
+    cn = src->mt_nchannel;
     row_filter.lr_filter = fv_get_row_filter_tab(src->mt_depth);
     row_filter.lr_anchor = anchor.pt_x;
     row_filter.lr_ksize = kernel_x->mt_rows;
+    row_filter.lr_cn = cn;
     col_filter.lc_filter = fv_get_column_filter_tab(dst->mt_depth);
     col_filter.lc_ksize = (kernel_y->mt_rows >> 1);
     col_filter.lc_anchor = ay;
+    col_filter.lc_cn = cn;
 
     kernel = fv_create_mat(kernel_y->mt_rows, kernel_y->mt_cols, 
             FV_MAKETYPE(FV_DEPTH_64F, 1));
@@ -659,7 +687,198 @@ fv_sep_filter2D(fv_mat_t *dst, fv_mat_t *src,
     filter.fe_row_filter = &row_filter.lr_base;
     filter.fe_col_filter = &col_filter.lc_base;
     filter.fe_is_separable = 1;
-    fv_sep_filter_proceed(dst, src, kernel_x, kernel_y, anchor, delta, 
+    fv_sep_filter_proceed(dst, src, NULL, kernel_x, kernel_y, anchor, delta,
             border_type, &filter);
+}
+
+#define fv_filter_2D_core(dst, src, count, width, cn, filter, castop) \
+    do { \
+        fv_filter_2D_t      *filter_2D = (fv_filter_2D_t *)filter; \
+        fv_point_t          *pt = filter_2D->ft_coords; \
+        float               *kf = (float *)filter_2D->ft_coeffs; \
+        typeof(dst)         *kp = filter_2D->ft_ptrs; \
+        fv_s32              i; \
+        fv_s32              k; \
+        fv_s32              nz = filter_2D->ft_nz; \
+        double              s0; \
+                            \
+        width *= cn; \
+        for (; count > 0; count--, dst += width, src++) { \
+            for (k = 0; k < nz; k++) { \
+                kp[k] = src[pt[k].pt_y] + pt[k].pt_x*cn; \
+            } \
+            \
+            for (i = 0; i < width; i++) { \
+                s0 = kf[0]*kp[0][i]; \
+                for (k = 1; k < nz; k++) { \
+                    s0 += kf[k]*kp[k][i]; \
+                } \
+                dst[i] = castop(s0); \
+            } \
+        } \
+    } while(0)
+
+
+static void
+fv_filter_2D_8u(fv_u8 *dst, fv_u8 **src, 
+           fv_s32 count, fv_s32 width, float *k_data,
+           fv_u32 cn, fv_base_filter_t *filter)
+{
+    fv_filter_2D_core(dst, src, count, width, cn, filter,
+            fv_saturate_cast_8u);
+}
+
+static void
+fv_filter_2D_8s(fv_s8 *dst, fv_s8 **src, 
+           fv_s32 count, fv_s32 width, float *k_data,
+           fv_u32 cn, fv_base_filter_t *filter)
+{
+    fv_filter_2D_core(dst, src, count, width, cn, filter,
+            fv_saturate_cast_8s);
+}
+
+static void
+fv_filter_2D_16u(fv_u16 *dst, fv_u16 **src, 
+           fv_s32 count, fv_s32 width, float *k_data,
+           fv_u32 cn, fv_base_filter_t *filter)
+{
+    fv_filter_2D_core(dst, src, count, width, cn, filter,
+            fv_saturate_cast_16u);
+}
+
+static void
+fv_filter_2D_16s(fv_s16 *dst, fv_s16 **src, 
+           fv_s32 count, fv_s32 width, float *k_data,
+           fv_u32 cn, fv_base_filter_t *filter)
+{
+    fv_filter_2D_core(dst, src, count, width, cn, filter,
+            fv_saturate_cast_16s);
+}
+
+static void
+fv_filter_2D_32s(fv_s32 *dst, fv_s32 **src, 
+           fv_s32 count, fv_s32 width, float *k_data,
+           fv_u32 cn, fv_base_filter_t *filter)
+{
+    fv_filter_2D_core(dst, src, count, width, cn, filter,
+            fv_saturate_cast_32s);
+}
+
+static void
+fv_filter_2D_32f(float *dst, float **src, 
+           fv_s32 count, fv_s32 width, float *k_data,
+           fv_u32 cn, fv_base_filter_t *filter)
+{
+    fv_filter_2D_core(dst, src, count, width, cn, filter,
+            fv_saturate_cast_32f);
+}
+
+static void
+fv_filter_2D_64f(double *dst, double **src, 
+           fv_s32 count, fv_s32 width, float *k_data,
+           fv_u32 cn, fv_base_filter_t *filter)
+{
+    fv_filter_2D_t      *filter_2D = (fv_filter_2D_t *)filter;
+    fv_point_t          *pt = filter_2D->ft_coords;
+    float               *kf = (float *)filter_2D->ft_coeffs;
+    double          **kp = filter_2D->ft_ptrs;
+    fv_s32              i;
+    fv_s32              k;
+    fv_s32              nz = filter_2D->ft_nz;
+
+    width *= cn;
+    for (; count > 0; count--, dst += width, src++) {
+        for (k = 0; k < nz; k++) {
+            kp[k] = src[pt[k].pt_y] + pt[k].pt_x*cn;
+        }
+
+        for (i = 0; i < width; i++) {
+            dst[i] = kf[0]*kp[0][i];
+            for (k = 1; k < nz; k++) {
+                dst[i] += kf[k]*kp[k][i];
+            }
+        }
+    } 
+}
+
+static fv_filter_2D_func fv_filter_2D_tab[] = {
+    (fv_filter_2D_func)fv_filter_2D_8u,
+    (fv_filter_2D_func)fv_filter_2D_8s,
+    (fv_filter_2D_func)fv_filter_2D_16u,
+    (fv_filter_2D_func)fv_filter_2D_16s,
+    (fv_filter_2D_func)fv_filter_2D_32s,
+    (fv_filter_2D_func)fv_filter_2D_32f,
+    (fv_filter_2D_func)fv_filter_2D_64f,
+};
+
+#define fv_filter_2D_tab_size \
+    (sizeof(fv_filter_2D_tab)/sizeof(fv_filter_2D_func))
+
+static fv_filter_2D_func 
+fv_get_filter_2D_tab(fv_u32 depth)
+{
+    FV_ASSERT(depth < fv_filter_2D_tab_size);
+
+    return fv_filter_2D_tab[depth];
+}
+
+static void
+fv_create_filter_2D(fv_filter_2D_t *filter, fv_mat_t *src, 
+        fv_s32 depth, fv_u32 nz, fv_size_t ksize,
+        fv_mat_t *kernel, fv_point_t anchor)
+{
+    fv_u32              cn;
+
+    cn = src->mt_nchannel;
+    filter->ft_filter = fv_get_filter_2D_tab(depth);
+    filter->ft_ksize = ksize;
+    filter->ft_anchor = anchor;
+    filter->ft_nchannels = cn;
+    fv_preprocess_2D_kernel(kernel, &filter->ft_coords, 
+            &filter->ft_coeffs, nz);
+    filter->ft_nz = nz;
+    filter->ft_ptrs = fv_alloc(nz*sizeof(void *));
+    FV_ASSERT(filter->ft_ptrs != NULL);
+}
+
+static void
+fv_release_filter_2D(fv_filter_engine_t *filter)
+{
+    fv_filter_2D_t      *f = (fv_filter_2D_t *)filter->fe_filter_2D;
+
+    if (!filter->fe_is_separable) {
+        fv_free(&f->ft_coords);
+        fv_free(&f->ft_coeffs);
+        fv_free(&f->ft_ptrs);
+    }
+}
+
+void
+fv_filter2D(fv_mat_t *dst, fv_mat_t *src, fv_u16 depth,
+                fv_mat_t *kernel, fv_point_t anchor, 
+                double delta, fv_s32 border_type)
+{
+    fv_filter_engine_t      filter = {};
+    fv_filter_2D_t          filter_2D = {};
+    fv_size_t               ksize;
+    fv_u32                  nz;
+
+    if (kernel->mt_total >= FV_DFT_FILTER_SIZE) {
+        /* DFT */
+        return;
+    }
+
+    ksize = fv_get_size(kernel);
+    anchor = fv_normalize_anchor(anchor, ksize);
+    nz = _fv_count_non_zero(kernel);
+    fv_create_filter_2D(&filter_2D, src, dst->mt_depth, 
+            nz, ksize, kernel, anchor);
+    filter.fe_filter_2D = &filter_2D.ft_base;
+    filter.fe_is_separable = 0;
+
+    fv_sep_filter_proceed(dst, src, kernel, NULL, NULL, 
+            anchor, delta, border_type, &filter);
+
+    fv_release_filter_2D(&filter);
 }
 

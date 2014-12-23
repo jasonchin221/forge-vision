@@ -64,11 +64,11 @@ fv_lk_optical_flow_image(IplImage *prev, IplImage *curr,
     }
 
     height = prev_img->ig_height;
-    fv_time_meter_set(FV_TIME_METER2);
+    fv_time_meter_set(FV_TIME_METER5);
     fv_good_features_to_track(prev_img, (fv_point_2D32f_t *)corners_a,
             &corner_count, FV_TRACK_QUALITY_LEVEL, FV_TRACK_MIN_DISTANCE,
             FV_TRACK_BLOCK_SIZE, NULL, FV_TRACK_USE_HARRIS, FV_TRACK_HARRIS_K);
-    fv_time_meter_get(FV_TIME_METER2, 0);
+    fv_time_meter_get(FV_TIME_METER5, 0);
     if (fv_track_points) {
         fv_track_label_points(corners_b, corners_a, 
                 corner_count, features_found);

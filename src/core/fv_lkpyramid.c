@@ -50,8 +50,14 @@ fv_track_get_mismatch_vector(float *mismatch_vector, fv_mat_t *prev_pyr,
     fv_s32              y;
     fv_s32              offset_x;
     fv_s32              offset_y;
+    fv_s32              ox1;
+    fv_s32              oy1;
+    fv_s32              ox2;
+    fv_s32              oy2;
     fv_s32              vector_y;
     fv_s32              vector_x;
+    fv_s32              width;
+    fv_s32              height;
 
     vector_x = guess[0] + vector[0];
     vector_y = guess[1] + vector[1];
@@ -59,14 +65,24 @@ fv_track_get_mismatch_vector(float *mismatch_vector, fv_mat_t *prev_pyr,
     g = grad->mt_data.dt_fl;
     x = track_point.pf_x;
     y = track_point.pf_y;
+    width = prev_pyr->mt_width;
+    height = prev_pyr->mt_height;
     for (offset_y = -win.sz_height; 
             offset_y <= win.sz_height; offset_y++) {
+        oy1 = y + offset_y;
+        oy2 = oy1 + vector_y;
+        if (oy1 < 0 || oy2 < 0 || oy1 >= height || oy2 >= height) {
+            continue;
+        }
         for (offset_x = -win.sz_width; 
                 offset_x <= win.sz_width; offset_x++, g += 2) {
-            img_diff = fv_mget(prev_pyr, y + offset_y, x + offset_x,
-                    0, FV_BORDER_CONSTANT) - 
-                fv_mget(next_pyr, y + offset_y + vector_y, 
-                        x + offset_x + vector_x, 0, FV_BORDER_CONSTANT);
+            ox1 = x + offset_x;
+            ox2 = ox1 + vector_x;
+            if (ox1 < 0 || ox2 < 0 || ox1 >= width || ox2 >= width) {
+                continue;
+            }
+            img_diff = prev_pyr->mt_data.dt_ptr[oy1*width + ox1] -
+                next_pyr->mt_data.dt_ptr[oy2*width + ox2];
             mismatch_vector[0] += g[0]*img_diff;
             mismatch_vector[1] += g[1]*img_diff;
         }
@@ -117,7 +133,12 @@ fv_lk_tracker_invoker(fv_mat_t *prev_pyr, fv_mat_t *next_pyr,
     fv_s32                  y;
     fv_s32                  iter;
     fv_s32                  ret;
+    fv_s32                  width;
+    fv_s32                  height;
 
+    width = prev_pyr->mt_width;
+    height = prev_pyr->mt_height;
+ 
     grad = fv_create_mat(win_size.sz_height*2 + 1, 
             win_size.sz_width*2 + 1, FV_32FC2);
     FV_ASSERT(grad != NULL);
@@ -137,13 +158,19 @@ fv_lk_tracker_invoker(fv_mat_t *prev_pyr, fv_mat_t *next_pyr,
         for (offset_y = -win_size.sz_height; 
                 offset_y <= win_size.sz_height; offset_y++) {
             y = (fv_s32)track_point.pf_y + offset_y;
+            if (y < 1 || y >= height - 1) {
+                continue;
+            }
             for (offset_x = -win_size.sz_width; 
                     offset_x <= win_size.sz_width; offset_x++) {
                 x = (fv_s32)track_point.pf_x + offset_x;
-                gx = (fv_mget(prev_pyr, y, x + 1, 0, FV_BORDER_CONSTANT) - 
-                        fv_mget(prev_pyr, y, x - 1, 0, FV_BORDER_CONSTANT))/2.0;
-                gy = (fv_mget(prev_pyr, y + 1, x, 0, FV_BORDER_CONSTANT) - 
-                        fv_mget(prev_pyr, y - 1, x, 0, FV_BORDER_CONSTANT))/2.0;
+                if (x < 1 || x >= width - 1) {
+                    continue;
+                }
+                gx = (prev_pyr->mt_data.dt_ptr[y*width + x + 1] - 
+                        prev_pyr->mt_data.dt_ptr[y*width + x - 1])/2.0;
+                gy = (prev_pyr->mt_data.dt_ptr[(y + 1)*width + x] - 
+                        prev_pyr->mt_data.dt_ptr[(y - 1)*width + x])/2.0;
                 d[0] = gx;
                 d[1] = gy;
                 d += 2;

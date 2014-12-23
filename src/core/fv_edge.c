@@ -6,6 +6,7 @@
 #include "fv_mem.h"
 #include "fv_filter.h"
 #include "fv_debug.h"
+#include "fv_time.h"
 
 static void 
 _fv_get_scharr_kernels(fv_mat_t **_kx, fv_mat_t **_ky,
@@ -168,7 +169,7 @@ fv_edge_filter(fv_mat_t *dst, fv_mat_t *src, fv_s32 ddepth, fv_s32 dx,
 
     ktype = fv_max(ddepth, FV_MAT_DEPTH(src));
     get_kernels(&kx, &ky, dx, dy, ksize, false, ktype);
-    if (!fv_float_eq(scale, 1)) {
+    if (scale != 1) {
         // usually the smoothing part is the slowest to compute,
         // so try to scale it instead of the faster differenciating part
         if (dx == 0) {
@@ -219,5 +220,153 @@ _fv_scharr(fv_mat_t *dst, fv_mat_t *src, fv_s32 ddepth, fv_s32 dx,
 {
     fv_edge_filter(dst, src, ddepth, dx, dy, 0, scale, delta, border_type, 
             fv_get_scharr_kernels);
+}
+
+#define fv_grad_add_core(dst, src1, src2, total, castop) \
+    do { \
+        fv_s32      i; \
+        \
+        for (i = 0; i < total; i++, dst++, src1++, src2++) { \
+            *dst = castop((*src1 + *src2)); \
+        } \
+    } while(0)
+
+
+static void
+fv_grad_add_8u(fv_u8 *dst, double *src1, double *src2, fv_u32 total)
+{
+    fv_grad_add_core(dst, src1, src2, total, fv_saturate_cast_8u);
+}
+
+static void
+fv_grad_add_8s(fv_s8 *dst, double *src1, double *src2, fv_u32 total)
+{
+    fv_grad_add_core(dst, src1, src2, total, fv_saturate_cast_8u);
+}
+
+static void
+fv_grad_add_16u(fv_u16 *dst, double *src1, double *src2, fv_u32 total)
+{
+    fv_grad_add_core(dst, src1, src2, total, fv_saturate_cast_8u);
+}
+
+static void
+fv_grad_add_16s(fv_s16 *dst, double *src1, double *src2, fv_u32 total)
+{
+    fv_grad_add_core(dst, src1, src2, total, fv_saturate_cast_8u);
+}
+
+static void
+fv_grad_add_32s(fv_s32 *dst, double *src1, double *src2, fv_u32 total)
+{
+    fv_grad_add_core(dst, src1, src2, total, fv_saturate_cast_8u);
+}
+
+static void
+fv_grad_add_32f(float *dst, double *src1, double *src2, fv_u32 total)
+{
+    fv_grad_add_core(dst, src1, src2, total, fv_saturate_cast_8u);
+}
+
+static void
+fv_grad_add_64f(double *dst, double *src1, double *src2, fv_u32 total)
+{
+    fv_s32      i;
+
+    for (i = 0; i < total; i++, dst++, src1++, src2++) {
+        *dst = (*src1 + *src2);
+    }
+}
+
+typedef void (*fv_grad_add_func)(void *, void *, void *, fv_u32);
+
+static fv_grad_add_func fv_grad_add_tab[] = {
+    (fv_grad_add_func)fv_grad_add_8u,
+    (fv_grad_add_func)fv_grad_add_8s,
+    (fv_grad_add_func)fv_grad_add_16u,
+    (fv_grad_add_func)fv_grad_add_16s,
+    (fv_grad_add_func)fv_grad_add_32s,
+    (fv_grad_add_func)fv_grad_add_32f,
+    (fv_grad_add_func)fv_grad_add_64f,
+};
+
+#define fv_grad_add_tab_size \
+    (sizeof(fv_grad_add_tab)/sizeof(fv_grad_add_func))
+
+static fv_grad_add_func 
+fv_get_grad_add_tab(fv_u32 depth)
+{
+    FV_ASSERT(depth < fv_grad_add_tab_size);
+
+    return fv_grad_add_tab[depth];
+}
+
+void
+fv_laplacian(fv_mat_t *dst, fv_mat_t *src, fv_u16 ddepth, fv_s32 ksize, 
+            double scale, double delta, fv_s32 border_type)
+{
+    fv_grad_add_func    func;
+    fv_mat_t            *dx;
+    fv_mat_t            *dy;
+    fv_mat_t            *kx;
+    fv_mat_t            *ky;
+    fv_mat_t            kernel = {};
+    float               k[2][9] = {{0, 1, 0, 1, -4, 1, 0, 1, 0},
+                {2, 0, 2, 0, -8, 0, 2, 0, 2}};
+    fv_u16              cn;
+
+    if (ksize == 1 || ksize == 3) {
+        kernel = fv_mat(3, 3, FV_32FC1, k[ksize == 3]);
+        if (scale != 1) {
+            fv_mset_scale(kernel, scale, float);
+        }
+
+        fv_filter2D(dst, src, ddepth, &kernel, fv_point(-1, -1),
+                delta, border_type);
+        return;
+    }
+
+    cn = src->mt_nchannel;
+    dx = fv_create_mat(src->mt_rows, src->mt_cols,
+            FV_MAKETYPE(FV_DEPTH_64F, cn));
+    FV_ASSERT(dx != NULL);
+    dy = fv_create_mat(src->mt_rows, src->mt_cols,
+            FV_MAKETYPE(FV_DEPTH_64F, cn));
+    FV_ASSERT(dy != NULL);
+    fv_get_sobel_kernels(&kx, &ky, 2, 0, ksize, 0, 0);
+
+    fv_time_meter_set(1);
+    fv_sep_filter2D(dx, src, kx, ky, fv_point(-1, -1), 
+            delta, border_type);
+    fv_sep_filter2D(dy, src, ky, kx, fv_point(-1, -1), 
+            delta, border_type);
+    fv_time_meter_get(1, 0);
+
+    func = fv_get_grad_add_tab(dst->mt_depth);
+    FV_ASSERT(func != NULL);
+    fv_time_meter_set(1);
+    func(dst->mt_data.dt_ptr, dx->mt_data.dt_db,
+            dy->mt_data.dt_db, dst->mt_total*cn);
+    fv_time_meter_get(1, 0);
+    fv_release_mat(&kx);
+    fv_release_mat(&ky);
+    fv_release_mat(&dy);
+    fv_release_mat(&dx);
+}
+
+void
+fv_laplace(fv_image_t *dst, fv_image_t *src, fv_s32 aperture_size)
+{
+    fv_mat_t    _dst;
+    fv_mat_t    _src;
+
+    FV_ASSERT(src->ig_image_size == dst->ig_image_size && 
+            src->ig_channels == dst->ig_channels);
+
+    _dst = fv_image_to_mat(dst);
+    _src = fv_image_to_mat(src);
+
+    fv_laplacian(&_dst, &_src, dst->ig_depth, aperture_size, 1, 0,
+                FV_BORDER_REPLICATE);
 }
 

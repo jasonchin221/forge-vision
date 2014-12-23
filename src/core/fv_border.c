@@ -122,19 +122,19 @@ fv_border_get_value(fv_u32 border_type, fv_s32 index, fv_s32 border)
         fv_s32      k; \
         fv_s32      row; \
         FV_ASSERT(dst_len >= src_step + (krow - 1)*cn); \
-        memcpy(dst + ax, src, src_step); \
+        memcpy(dst + ax*cn, src, src_step); \
         if (border_type != FV_BORDER_CONSTANT) { \
             for (k = 0; k < ax; k++) { \
                 row = fv_border_get_value(border_type, k - ax, width); \
                 for (i = 0; i < cn; i++) { \
-                    dst[k + cn - 1] = src[row + cn - 1]; \
+                    dst[k*cn + i] = src[row*cn + i]; \
                 } \
             } \
             dst += (width + ax)*cn; \
             for (k = 0; k < krow - 1 - ax; k++) { \
                 row = fv_border_get_value(border_type, width + k, width); \
                 for (i = 0; i < cn; i++) { \
-                    dst[k + cn - 1] = src[row + cn - 1]; \
+                    dst[k*cn + i] = src[row*cn + i]; \
                 } \
             } \
         } \
