@@ -179,11 +179,24 @@ typedef struct _fv_image_t {
 #define FV_8UC4     FV_MAKETYPE(FV_DEPTH_8U, 4)
 #define FV_8UC(n)   FV_MAKETYPE(FV_DEPTH_8U, n)
 
+#define FV_16SC1     FV_MAKETYPE(FV_DEPTH_16S, 1)
+#define FV_16SC2     FV_MAKETYPE(FV_DEPTH_16S, 2)
+#define FV_16SC3     FV_MAKETYPE(FV_DEPTH_16S, 3)
+#define FV_16SC4     FV_MAKETYPE(FV_DEPTH_16S, 4)
+#define FV_16SC(n)   FV_MAKETYPE(FV_DEPTH_16S, n)
+
 #define FV_32FC1    FV_MAKETYPE(FV_DEPTH_32F, 1)
 #define FV_32FC2    FV_MAKETYPE(FV_DEPTH_32F, 2)
 #define FV_32FC3    FV_MAKETYPE(FV_DEPTH_32F, 3)
 #define FV_32FC4    FV_MAKETYPE(FV_DEPTH_32F, 4)
 #define FV_32FC(n)  FV_MAKETYPE(FV_DEPTH_32F, n)
+
+#define FV_64FC1    FV_MAKETYPE(FV_DEPTH_64F, 1)
+#define FV_64FC2    FV_MAKETYPE(FV_DEPTH_64F, 2)
+#define FV_64FC3    FV_MAKETYPE(FV_DEPTH_64F, 3)
+#define FV_64FC4    FV_MAKETYPE(FV_DEPTH_64F, 4)
+#define FV_64FC(n)  FV_MAKETYPE(FV_DEPTH_64F, n)
+
 
 typedef struct _fv_mat_t {
     fv_u32      mt_type;        /* Must be FV_BASE_TYPE_MAT */

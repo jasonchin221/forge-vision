@@ -14,6 +14,13 @@
 
 #define fv_min(a, b) ((a) < (b) ? (a) : (b))
 #define fv_max(a, b) ((a) > (b) ? (a) : (b))
+#define fv_swap(a, b) \
+    do { \
+        double  t; \
+        t = a; \
+        a = b; \
+        b = t; \
+    } while(0)
 
 #define fv_align(len, align_num) \
     (len + (align_num - (len % align_num))%align_num)

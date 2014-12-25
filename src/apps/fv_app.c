@@ -38,6 +38,7 @@ static fv_app_algorithm_t fv_app_algorithm[] = {
     {"pyr_down", {fv_cv_pyr_down, fv_cv_pyr_down}},
     {"smooth", {fv_cv_smooth, fv_cv_smooth}},
     {"laplace", {fv_cv_laplace, fv_cv_laplace}},
+    {"canny", {fv_cv_canny, fv_cv_canny}},
 };
 
 #define fv_app_alg_num (sizeof(fv_app_algorithm)/sizeof(fv_app_algorithm_t))
