@@ -98,6 +98,11 @@ typedef struct _fv_size_t {
     fv_s32          sz_height;
 } fv_size_t;
 
+typedef struct _fv_line_polar_t {
+    float           lp_rho;
+    float           lp_angle;
+} fv_line_polar_t;
+
 /*
  * @rt_point: left bottom
  */
@@ -119,6 +124,16 @@ typedef struct _fv_point_2D32f_t {
     float       pf_x;
     float       pf_y;
 } fv_point_2D32f_t;
+
+typedef struct _fv_line_t {
+    fv_point_2D32f_t    ln_p1;
+    fv_point_2D32f_t    ln_p2;
+} fv_line_t;
+
+typedef struct _fv_circle_t {
+    fv_point_t  cl_center;
+    float       cl_radius;
+} fv_circle_t;
 
 typedef struct _fv_roi_t {
     fv_s32      ri_coi; /* -1 - no COI (all channels are selected), 0 - 0th channel is selected ...*/
@@ -147,22 +162,24 @@ typedef struct _fv_base_operation_t {
 
 typedef struct _fv_image_t {
     fv_u32      ig_type;        /* Must be FV_BASE_TYPE_IMAGE */
-    fv_u16      ig_channels;    /* Most of OpenCV functions support 1,2,3 or 4 channels */
-    fv_u16      ig_depth;       /* Pixel depth in bits: 
+    fv_u32      ig_channels;    /* Most of OpenCV functions support 1,2,3 or 4 channels */
+    fv_u32      ig_depth;       /* Pixel depth in bits:
                                    FV_DEPTH_8U, FV_DEPTH_8S, FV_DEPTH_16S,
                                    FV_DEPTH_32S, FV_DEPTH_32F and FV_DEPTH_64F are supported.  */
-    fv_s32      ig_data_order;   /* 0 - interleaved color channels, 1 - separate color channels.
-                                    cvCreateImage can only create interleaved images */
-    fv_s32      ig_origin;       /* 0 - top-left origin,
-                                    1 - bottom-left origin (Windows bitmaps style).  */
+    fv_u32      ig_depth2;
     fv_s32      ig_width;        /* Image width in pixels.                           */
     fv_s32      ig_height;       /* Image height in pixels.                          */
+    fv_s32      ig_total;        /* The total number of pixels.                      */
+    fv_s32      ig_refcount;
     fv_roi_t    *ig_roi;         /* Image ROI. If NULL, the whole image is selected. */
     fv_u32      ig_image_size;         /* Image data size in bytes
                                             (==image->height*image->widthStep
                                             in case of interleaved data)*/
     fv_s32      ig_width_step;         /* Size of aligned image row in bytes.    */
-    fv_s8       *ig_image_data;        /* Pointer to aligned image data.         */
+    union {
+        fv_s8   *ig_image_data;        /* Pointer to aligned image data.         */
+        void    *ig_data_ptr;
+    };
     fv_s8       *ig_image_data_origin;  /* Pointer to very origin of image data
                                             (not necessarily aligned) -
                                             needed for correct deallocation */
@@ -184,6 +201,12 @@ typedef struct _fv_image_t {
 #define FV_16SC3     FV_MAKETYPE(FV_DEPTH_16S, 3)
 #define FV_16SC4     FV_MAKETYPE(FV_DEPTH_16S, 4)
 #define FV_16SC(n)   FV_MAKETYPE(FV_DEPTH_16S, n)
+
+#define FV_32SC1    FV_MAKETYPE(FV_DEPTH_32S, 1)
+#define FV_32SC2    FV_MAKETYPE(FV_DEPTH_32S, 2)
+#define FV_32SC3    FV_MAKETYPE(FV_DEPTH_32S, 3)
+#define FV_32SC4    FV_MAKETYPE(FV_DEPTH_32S, 4)
+#define FV_32SC(n)  FV_MAKETYPE(FV_DEPTH_32S, n)
 
 #define FV_32FC1    FV_MAKETYPE(FV_DEPTH_32F, 1)
 #define FV_32FC2    FV_MAKETYPE(FV_DEPTH_32F, 2)

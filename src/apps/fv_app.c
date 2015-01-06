@@ -16,6 +16,7 @@
 #include "fv_stat.h"
 #include "fv_pyramid.h"
 #include "fv_smooth.h"
+#include "fv_hough.h"
 
 static fv_app_proc_file_t fv_app_proc[] = {
     {"image", 1, fv_cv_detect_img},
@@ -39,6 +40,7 @@ static fv_app_algorithm_t fv_app_algorithm[] = {
     {"smooth", {fv_cv_smooth, fv_cv_smooth}},
     {"laplace", {fv_cv_laplace, fv_cv_laplace}},
     {"canny", {fv_cv_canny, fv_cv_canny}},
+    {"hough", {fv_cv_hough, fv_cv_hough}},
 };
 
 #define fv_app_alg_num (sizeof(fv_app_algorithm)/sizeof(fv_app_algorithm_t))

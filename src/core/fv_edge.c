@@ -179,7 +179,7 @@ fv_edge_filter(fv_mat_t *dst, fv_mat_t *src, fv_s32 ddepth, fv_s32 dx,
         }
     }
 
-    FV_LOG_PRINT("kx[%f %f %f], ky[%f %f %f]\n", 
+    printf("kx[%f %f %f], ky[%f %f %f]\n", 
             kx->mt_data.dt_fl[0], kx->mt_data.dt_fl[1],kx->mt_data.dt_fl[2],
             ky->mt_data.dt_fl[0], ky->mt_data.dt_fl[1],ky->mt_data.dt_fl[2]);
     fv_sep_filter2D(dst, src, kx, ky, fv_point(-1, -1), 

@@ -132,7 +132,7 @@ fv_create_data(fv_arr *arr)
 
 void
 fv_init_image_header(fv_image_t *img, fv_size_t size, fv_s32 depth, 
-            fv_s32 channels, fv_s32 origin, fv_s32 align)
+            fv_s32 channels, fv_s32 align)
 {      
     //const char *colorModel, *channelSeq;
 
@@ -143,27 +143,39 @@ fv_init_image_header(fv_image_t *img, fv_size_t size, fv_s32 depth,
     memset(img, 0, sizeof(*img));
     img->ig_type = FV_BASE_TYPE_IMAGE;
 
-#if 0
-    icvGetColorModel( channels, &colorModel, &channelSeq );
-    strncpy( image->colorModel, colorModel, 4 );
-    strncpy( image->channelSeq, channelSeq, 4 );
-#endif
-
     if (size.sz_width < 0 || size.sz_height < 0) {
         FV_LOG_ERR("Bad input roi\n");
     }
 
-    if ((depth != FV_DEPTH_1U && depth != FV_DEPTH_8U &&
-         depth != FV_DEPTH_8S && depth != FV_DEPTH_16U &&
-         depth != FV_DEPTH_16S && depth != FV_DEPTH_32S &&
-         depth != FV_DEPTH_32F && depth != FV_DEPTH_64F) ||
-         channels < 0 ) {
-        FV_LOG_ERR("Unsupported format, depth = %d, channels = %d\n",
-                depth, channels);
-    }
+    switch (depth) {
+        case FV_DEPTH_1U:
+        case FV_DEPTH_8U:
+            img->ig_depth2 = FV_8U;
+            break;
+        case FV_DEPTH_8S:
+            img->ig_depth2 = FV_8S;
+            break;
+        case FV_DEPTH_16U:
+            img->ig_depth2 = FV_16U;
+            break;
+        case FV_DEPTH_16S:
+            img->ig_depth2 = FV_16S;
+            break;
+        case FV_DEPTH_32F:
+            img->ig_depth2 = FV_32F;
+            break;
+        case FV_DEPTH_32S:
+            img->ig_depth2 = FV_32S;
+            break;
+        case FV_DEPTH_64F:
+            img->ig_depth2 = FV_64F;
+            break;
+        default:
+            FV_LOG_ERR("Unknow depth type %d!\n", depth);
+    } 
 
-    if (origin != FV_ORIGIN_BL && origin != FV_ORIGIN_TL) {
-        FV_LOG_ERR("Bad input origin\n");
+    if (channels < 0 ) {
+        FV_LOG_ERR("Unsupported format, channels = %d\n", channels);
     }
 
     if (align != 4 && align != 8) {
@@ -172,6 +184,8 @@ fv_init_image_header(fv_image_t *img, fv_size_t size, fv_s32 depth,
 
     img->ig_width = size.sz_width;
     img->ig_height = size.sz_height;
+    img->ig_total = size.sz_width*size.sz_height;
+    img->ig_refcount = 1;
 
     if (img->ig_roi) {
         img->ig_roi->ri_coi = 0;
@@ -184,7 +198,6 @@ fv_init_image_header(fv_image_t *img, fv_size_t size, fv_s32 depth,
     img->ig_depth = depth;
     img->ig_width_step = (((img->ig_width * img->ig_channels *
          (img->ig_depth & ~FV_DEPTH_SIGN) + 7)/8) + align - 1) & (~(align - 1));
-    img->ig_origin = origin;
     img->ig_image_size = img->ig_width_step * img->ig_height;
 }
 
@@ -199,7 +212,7 @@ fv_create_image_header(fv_size_t size, fv_s32 depth, fv_s32 channels)
     }
 
     fv_init_image_header(img, size, depth, channels, 
-            FV_ORIGIN_BL, FV_DEFAULT_IMAGE_ROW_ALIGN);
+            FV_DEFAULT_IMAGE_ROW_ALIGN);
 
     return img;
 }

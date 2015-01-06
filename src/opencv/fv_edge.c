@@ -14,7 +14,7 @@
 #define FV_LAPLACE_K_SIZE   5
 #define FV_CANNY_K_SIZE     3
 #define FV_CANNY_THRESHOLD1 50
-#define FV_CANNY_THRESHOLD2 10
+#define FV_CANNY_THRESHOLD2 200
 
 static void 
 _fv_cv_sobel_mine(IplImage *cv_sobel, IplImage *gray, 

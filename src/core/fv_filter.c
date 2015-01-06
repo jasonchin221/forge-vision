@@ -370,8 +370,8 @@ fv_get_row_filter_tab(fv_u32 depth)
                 for (i = 0; i < width; i++) { \
                     v = 0; \
                     for (k = 1; k <= ky_size; k++) { \
-                        v += ky_data[k]*(src[j + ay - k][i] - \
-                                src[j + ay + k][i]); \
+                        v += ky_data[k]*(src[j + ay + k][i] - \
+                                src[j + ay - k][i]); \
                     } \
                     dst[i] = cast(v); \
                 } \

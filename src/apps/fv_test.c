@@ -12,6 +12,8 @@
 #include "fv_debug.h"
 #include "fv_opencv.h"
 #include "fv_morph.h"
+#include "fv_time.h"
+#include "fv_math.h"
 
 typedef struct _fv_test_proc_t {
     char            *tp_name;
@@ -21,9 +23,11 @@ typedef struct _fv_test_proc_t {
 
 static fv_s32 fv_test_mat(IplImage *, fv_bool);
 static fv_s32 fv_test_selem(IplImage *, fv_bool);
+static fv_s32 fv_test_sort(IplImage *, fv_bool);
 static fv_test_proc_t fv_test_algorithm[] = {
     {"mat", 0, fv_test_mat},
     {"selem", 0, fv_test_selem},
+    {"sort", 0, fv_test_sort},
 };
 
 #define fv_test_alg_num (sizeof(fv_test_algorithm)/sizeof(fv_test_proc_t))
@@ -263,6 +267,100 @@ fv_test_selem(IplImage *img, fv_bool image)
 
     fprintf(stdout, "OK!\n");
 
+    return FV_OK;
+}
+
+#define FV_TEST_SORT_NUM    10000
+
+int fv_test_sort_data[FV_TEST_SORT_NUM];
+int fv_test_sort_buf[FV_TEST_SORT_NUM];
+
+void 
+fv_insert_sort(int *sort_buf, int base, int total, int *accum)
+{
+    fv_s32      i;
+    fv_s32      j;
+
+    if (total == 0) {
+        sort_buf[0] = base;
+        return;
+    }
+
+    for (i = 0; i < total; i++) {
+        if (accum[base] > accum[sort_buf[i]]) {
+            for (j = total - 1; j >= i; j--) {
+                sort_buf[j + 1] = sort_buf[j];
+            }
+            break;
+        }
+    }
+    sort_buf[i] = base;
+}
+
+void
+fv_bubble_sort(int *sort_buf, int total, int *accum)
+{
+    fv_s32      i;
+    fv_s32      j;
+
+    for (i = 0; i < total - 1; i++) {
+        for (j = 0; j < total - 1 - i; j++) {
+            if (accum[sort_buf[j]] < accum[sort_buf[j + 1]]) {
+                fv_swap(sort_buf[j], sort_buf[j + 1]);
+            }
+        }
+    }
+}
+
+#define hough_cmp_gt(l1,l2) (aux[l1] > aux[l2])
+
+static FV_IMPLEMENT_QSORT_EX(hough_sort, int, hough_cmp_gt, const int* )
+
+static fv_s32 
+fv_test_sort(IplImage *img, fv_bool image)
+{
+    int     i;
+
+    for (i = 0; i < FV_TEST_SORT_NUM; i++) {
+        fv_test_sort_data[i] = random() % FV_TEST_SORT_NUM;
+        fv_test_sort_buf[i] = i;
+    }
+
+    fv_time_meter_set(0);
+    for (i = 0; i < FV_TEST_SORT_NUM; i++) {
+        fv_insert_sort(fv_test_sort_buf, i, i, fv_test_sort_data);
+    };
+    fv_time_meter_get(0, 0);
+
+    for (i = 0; i < 20; i++) {
+        fprintf(stdout, "%d ", fv_test_sort_data[fv_test_sort_buf[i]]);
+    }
+    fprintf(stdout, "Insert sort\n");
+
+    for (i = 0; i < FV_TEST_SORT_NUM; i++) {
+        fv_test_sort_buf[i] = i;
+    }
+
+    fv_time_meter_set(0);
+    fv_bubble_sort(fv_test_sort_buf, FV_TEST_SORT_NUM, fv_test_sort_data);
+    fv_time_meter_get(0, 0);
+    for (i = 0; i < 20; i++) {
+        fprintf(stdout, "%d ", fv_test_sort_data[fv_test_sort_buf[i]]);
+    }
+    fprintf(stdout, "Bubble sort\n");
+
+    for (i = 0; i < FV_TEST_SORT_NUM; i++) {
+        fv_test_sort_buf[i] = i;
+    }
+
+    fv_time_meter_set(0);
+    hough_sort(fv_test_sort_buf, FV_TEST_SORT_NUM, fv_test_sort_data);
+    for (i = 0; i < 20; i++) {
+        fprintf(stdout, "%d ", fv_test_sort_data[fv_test_sort_buf[i]]);
+    }
+    fprintf(stdout, "hough sort\n");
+    fv_time_meter_get(0, 0);
 
     return FV_OK;
 }
+
