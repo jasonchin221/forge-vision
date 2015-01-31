@@ -23,5 +23,6 @@ extern void fv_mset(fv_mat_t *mat, fv_s32 row, fv_s32 col,
             fv_u16 channel, double value);
 extern fv_mat_t *fv_mat_extract_image_coi(fv_image_t *image);
 extern void fv_convert_mat(fv_mat_t *dst, fv_mat_t *src);
+extern void fv_get_sub_rect(fv_mat_t *submat, fv_mat_t *src, fv_rect_t rect);
 
 #endif

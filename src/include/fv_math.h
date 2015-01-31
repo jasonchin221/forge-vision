@@ -52,9 +52,34 @@
         ret;\
      })
 
+#define fv_saturate_cast_max(v, max) \
+    ({\
+        typeof(v)   ret;\
+        if (v > max) { \
+            ret = max; \
+        } else { \
+            ret = v; \
+        } \
+        ret;\
+     })
+
+#define fv_saturate_cast_min(v, min) \
+    ({\
+        typeof(v)   ret;\
+        if (v < min) { \
+            ret = min; \
+        } else { \
+            ret = v; \
+        } \
+        ret;\
+     })
+
+
+#define fv_saturate_no_cast(v) v
 #define fv_saturate_cast_8u(v) fv_saturate_cast(v, 255, 0)
 #define fv_saturate_cast_8s(v) fv_saturate_cast(v, 127, -128)
 #define fv_saturate_cast_16u(v) fv_saturate_cast(v, 65535, 0)
+#define fv_saturate_cast_16u_min(v) fv_saturate_cast_min(v, 0)
 #define fv_saturate_cast_16s(v) fv_saturate_cast(v, fv_short_max, fv_short_min)
 #define fv_saturate_cast_32s(v) fv_saturate_cast(v, fv_int_max, fv_int_min)
 #define fv_saturate_cast_32f(v) fv_saturate_cast(v, FLT_MAX, -FLT_MAX)
@@ -229,6 +254,31 @@ void func_name( T *array, size_t total, user_data_type aux )                    
             }                                                                       \
         }                                                                           \
     }                                                                               \
+}
+
+#define fv_complex_multiply(r1, i1, r2, i2, r, i) \
+    do { \
+        r = (r1)*(r2) - (i1)*(i2); \
+        i = (r1)*(i2) + (r2)*(i1); \
+    } while(0)
+
+static inline fv_u32
+fv_num_map(fv_u32 n, fv_u8 b)
+{
+     fv_u32     ret = 0;
+     fv_u32     i;
+     fv_u32     j; 
+     fv_u32     k;
+
+     for (i = 0; i < b; i++) {
+        j = (1 << i);
+        k = (1 << (b - 1 - i));
+        if (n & j) {
+            ret |= k;
+        }
+     }
+
+     return ret;
 }
 
 

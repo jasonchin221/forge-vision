@@ -4,5 +4,5 @@ fv_app_LDADD = $(srcdir)/../opencv/libopencv_can.la $(srcdir)/../core/libforge_v
 fv_test_SOURCES = fv_test.c
 fv_test_LDADD = $(srcdir)/../opencv/libopencv_can.la $(srcdir)/../core/libforge_vision.la
 
-AM_CPPFLAGS = -I$(srcdir)/../include
+AM_CPPFLAGS = -I$(srcdir)/../include -lm
 AM_CFLAGS = -Wall -Werror

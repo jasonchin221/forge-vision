@@ -597,12 +597,19 @@ cvCloneMat( const CvMat* src )
 void
 fv_copy_mat(fv_mat_t *dst, fv_mat_t *src) 
 {
+    fv_s32      step;
+    fv_s32      i;
+
     FV_ASSERT(dst->mt_atr == src->mt_atr &&
             dst->mt_rows == src->mt_rows &&
             dst->mt_cols == src->mt_cols);
 
-    memcpy(dst->mt_data.dt_ptr, src->mt_data.dt_ptr, 
-            dst->mt_rows*dst->mt_step);
+    step = dst->mt_cols*FV_MAT_ELEM_SIZE(dst);
+    for (i = 0; i < dst->mt_rows; i++) {
+        memcpy(dst->mt_data.dt_ptr + i*dst->mt_step, 
+                src->mt_data.dt_ptr + i*src->mt_step,
+                step);
+    }
 }
 
 double
@@ -784,5 +791,17 @@ fv_convert_mat(fv_mat_t *dst, fv_mat_t *src)
     }
 
     FV_LOG_ERR("Unknow convert format!\n");
+}
+
+void
+fv_get_sub_rect(fv_mat_t *submat, fv_mat_t *src, fv_rect_t rect)
+{
+    submat->mt_data.dt_ptr = src->mt_data.dt_ptr + 
+        rect.rt_point.pt_y*src->mt_step + 
+        rect.rt_point.pt_x*FV_MAT_ELEM_SIZE(src);
+    submat->mt_cols = rect.rt_size.sz_width;
+    submat->mt_rows = rect.rt_size.sz_height;
+    submat->mt_step = src->mt_step;
+    submat->mt_atr = src->mt_atr;
 }
 
